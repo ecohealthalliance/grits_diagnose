@@ -1,0 +1,4 @@
+{
+    "name": "grits_diagnose",
+    "description": "Girder plugin exposing the grits-api diagnose endpoint."
+}
