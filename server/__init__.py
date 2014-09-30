@@ -16,9 +16,9 @@ except ImportError:
     access.user = lambda x: x
 
 
-@access.user
 class DiagnoseHandler(Resource):
 
+    @access.user
     def submit(self, params):
         url = params.get('url')
         content = params.get('content')
