@@ -95,7 +95,7 @@ class DiagnoseTestCase(base.TestCase):
 
         def requests(user, params, status):
             resp = self.request(
-                path='/resource/diagnose',
+                path='/grits/diagnose',
                 params=params,
                 method='POST',
                 user=user

@@ -27,6 +27,9 @@ config = {
 
 class DiagnoseHandler(Resource):
 
+    def __init__(self):
+        self.resourceName = 'grits'
+
     @access.user
     def submit(self, params):
         url = params.get('url')
@@ -100,4 +103,5 @@ class DiagnoseHandler(Resource):
 
 def load(info):
     diagnoseHandler = DiagnoseHandler()
-    info['apiRoot'].resource.route('POST', ('diagnose',), diagnoseHandler.submit)
+    diagnoseHandler.route('POST', ('diagnose',), diagnoseHandler.submit)
+    info['apiRoot'].grits = diagnoseHandler
