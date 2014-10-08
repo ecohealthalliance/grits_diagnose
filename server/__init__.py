@@ -20,8 +20,9 @@ except ImportError:
 
 config = {
     'group': 'GRITS',  # Users must have read access in this group to hit the api.
-    'privateGroup': 'GRITSPriv'  # Users in this group get extra data
-
+    'privateGroup': 'GRITSPriv',  # Users in this group get extra data
+    'maxTaskWait': 300,  # The maximum number of seconds to wait for the diagnosis task
+    'pollingInterval': 0.1  # The interval in seconds to check the diagnosis task status
 }
 
 
@@ -39,7 +40,6 @@ class DiagnoseHandler(Resource):
         # check permissions
         group = ModelImporter().model('group').find({'name': config['group']})
 
-        print 'count = %i' % group.count()
         if group.count():
             # the group must exist
             group = group[0]
@@ -50,21 +50,28 @@ class DiagnoseHandler(Resource):
         else:
             raise AccessException('Invalid group name configured')
 
+        # Create the diagnosis task
         statusMethod = server_support.handleDiagnosis(content=content, url=url)
 
+        # Get the initial status
         status = statusMethod()
-        maxLoops = 300
+
+        # Get the maximum number of times to poll the task
+        maxLoops = config['maxTaskWait']/config['pollingInterval']
+
+        # Loop until the task is finished
         iloop = 0
         while status['status'] == 'pending' and iloop < maxLoops:
             iloop += 1
-            time.sleep(1)
+            time.sleep(config['pollingInterval'])
             status = statusMethod()
 
+        # Get status and report errors
         if status['status'] == 'pending':
-            raise RestException("Task timed out.")
+            raise RestException("Task timed out.", code=408)
 
         if status['status'] == 'failure':
-            raise RestException(status['message'])
+            raise RestException(status['message'], code=400)
 
         # check access to private data
         group = ModelImporter().model('group').find({'name': config['privateGroup']})
@@ -77,10 +84,12 @@ class DiagnoseHandler(Resource):
             except AccessException:
                 pass
 
+        # Append content data if the user has access
         if hasAccess:
             status["result"]["scrapedData"] = status["content"]
 
         return status["result"]
+
     submit.description = (
         Description(
             "Diagnose an article."
@@ -98,6 +107,9 @@ class DiagnoseHandler(Resource):
             "A url containing the article to be scraped",
             required=False
         )
+        .errorResponse('Error in diagnosis task', 400)
+        .errorResponse('Permission denied', 403)
+        .errorResponse('Diagnosis task timeout', 408)
     )
 
 

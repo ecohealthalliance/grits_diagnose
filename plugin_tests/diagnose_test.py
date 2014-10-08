@@ -19,10 +19,12 @@
 
 import sys
 import os
+import importlib
 
 # Insert the directory of this file to the path so that the plugin
 # picks up the mocked grits-api package.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+server_support = importlib.import_module('.server_support', 'grits-api')
 
 from tests import base
 
@@ -100,22 +102,24 @@ class DiagnoseTestCase(base.TestCase):
                 method='POST',
                 user=user
             )
-            self.assertStatus(resp, status[0])
+            self.assertStatus(resp, status)
+            return resp.json
 
         self.setUpGroups()
 
         # test admin permissions
-        requests(self.admin, {}, (200, 200))
+        requests(self.admin, {}, 200)
 
         # test non grits user permissions
-        requests(self.normalUser, {}, (403, 403))
+        requests(self.normalUser, {}, 403)
 
         # test normal grits user permissions
         gritsGroup = self.model('group').find({'name': 'GRITS'})[0]
         user = self.model('user').createUser(**gritsUser)
         self.model('group').addUser(gritsGroup, user)
 
-        requests(user, {}, (200, 403))
+        resp = requests(user, {}, 200)
+        self.assertNotHasKeys(resp, ['scrapedData'])
 
         # test privilaged grits user permissions
         privGroup = self.model('group').find({'name': 'GRITSPriv'})[0]
@@ -123,4 +127,9 @@ class DiagnoseTestCase(base.TestCase):
         self.model('group').addUser(privGroup, user)
         self.model('group').addUser(gritsGroup, user)
 
-        requests(user, {}, (200, 200))
+        resp = requests(user, {}, 200)
+        self.assertHasKeys(resp, ['scrapedData'])
+
+        # test failure reporting
+        server_support.make_next_test_fail()
+        resp = requests(user, {}, 400)
